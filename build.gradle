@@ -51,6 +51,14 @@ tasks.register('verificar', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
 }
 
+// A tarefa 'test' embutida fica desligada: sem JUnit no classpath ela nao executaria nada,
+// e a partir do Gradle 9 "fontes de teste sem teste executado" e erro de build.
+// Quem digitar './gradlew test' por habito continua rodando a verificacao.
 tasks.named('test') {
+    enabled = false
+    dependsOn 'verificar'
+}
+
+tasks.named('check') {
     dependsOn 'verificar'
 }
