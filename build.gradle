@@ -1,0 +1,56 @@
+plugins {
+    id 'java'
+    id 'application'
+    // Pessoa B: o plugin ja esta configurado. Descomente quando comecar a tela (tarefa B1).
+    // id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+group = 'com.unifor.br'
+version = '0.1.0'
+description = 'Chat P2P distribuido'
+
+repositories {
+    mavenCentral()
+}
+
+// Sem dependencia externa de proposito: o projeto compila e roda em qualquer maquina,
+// sem depender de rede, proxy da faculdade ou versao de biblioteca. O JSON do protocolo
+// e tratado pela classe interna com.unifor.br.peer.net.Json, e a suite de verificacao
+// roda com um runner proprio (ver a tarefa 'verificar' abaixo).
+dependencies {
+}
+
+// Compila com qualquer JDK 17 ou superior, gerando bytecode compativel com o 17.
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+}
+
+// Pessoa B: descomente junto com o plugin acima (tarefa B1).
+// javafx {
+//     version = '21.0.2'
+//     modules = ['javafx.controls', 'javafx.fxml']
+// }
+
+application {
+    // Hoje aponta para o cliente de console, que valida o nucleo sem interface.
+    // Pessoa B: troque para 'com.unifor.br.peer.ui.ChatApplication' quando a tela existir.
+    mainClass = 'com.unifor.br.peer.demo.ConsoleChat'
+}
+
+tasks.named('run') {
+    standardInput = System.in
+}
+
+// Suite de verificacao do nucleo (tarefa A8): sobe peers de verdade em portas locais.
+// Roda com './gradlew verificar' ou junto de './gradlew test' e './gradlew build'.
+tasks.register('verificar', JavaExec) {
+    group = 'verification'
+    description = 'Roda a suite de testes do nucleo P2P.'
+    mainClass = 'com.unifor.br.peer.testes.SuiteDeTestes'
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+tasks.named('test') {
+    dependsOn 'verificar'
+}
