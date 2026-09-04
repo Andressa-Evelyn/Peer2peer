@@ -9,17 +9,6 @@ import java.util.Map;
 /**
  * Leitor e escritor de JSON minimo, suficiente para o protocolo do chat.
  *
- * <p>Por que nao usar uma biblioteca: o projeto inteiro passa a compilar e rodar sem baixar
- * nada, o que evita o problema classico de um integrante nao conseguir subir o build por
- * causa de rede, proxy da faculdade ou versao de dependencia. O protocolo tem sete campos
- * planos; nao justifica arrastar Jackson junto.
- *
- * <p>Suporta objeto, array, string, numero, booleano e null. Escapa aspas, barra invertida e
- * caracteres de controle, e le {@code \\uXXXX} — inclusive par substituto, o que faz emoji
- * sobreviver a ida e volta.
- *
- * <p>Se o professor exigir uso de biblioteca, trocar por Jackson mexe apenas em
- * {@link ProtocolCodec}: nenhuma outra classe conhece esta.
  */
 final class Json {
 

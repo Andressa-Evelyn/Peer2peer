@@ -19,19 +19,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Camada de transporte (tarefa A2): aceita conexoes, abre conexoes e mantem o mapa de quem esta vivo.
+ * Camada de transporte: aceita conexoes, abre conexoes e mantem o mapa de quem esta vivo.
  *
  * <p>Nao entende protocolo. Recebe linha, entrega linha, avisa quando um socket morre. Toda a
  * decisao de o que fazer com o conteudo fica em {@link SocketPeerNetwork}.
  *
- * <p>Diferencas para o {@code Peer} original:
- * <ul>
- *   <li>{@code ExecutorService} nomeado no lugar de {@code new Thread(...)} solto, para o
- *       shutdown conseguir encerrar tudo;</li>
- *   <li>as conexoes vivem em {@code Map<peerId, PeerConnection>} em vez de {@code List<Socket>},
- *       o que permite enderecar mensagem privada e remover peer morto;</li>
- *   <li>{@code IOException} no accept nao derruba o laco: so encerra quando o shutdown pediu.</li>
- * </ul>
  */
 public final class ConnectionManager {
 

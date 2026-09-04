@@ -5,7 +5,7 @@ import com.unifor.br.peer.contract.PeerInfo;
 import java.util.UUID;
 
 /**
- * Identidade deste peer (tarefa A1).
+ * Identidade deste peer.
  *
  * <p>Substitui o antigo par "username solto + porta": agora existe um {@code peerId} estavel,
  * gerado uma vez na inicializacao, que e a chave de tudo — mapa de conexoes, destinatario de

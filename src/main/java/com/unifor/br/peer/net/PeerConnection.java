@@ -13,18 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Um socket TCP encapsulado (tarefa A3).
+ * Um socket TCP encapsulado.
  *
- * <p>Tres correcoes em relacao ao codigo original:
- * <ul>
- *   <li>o {@code PrintWriter} e criado uma unica vez, e nao a cada envio dentro do laco de broadcast;</li>
- *   <li>a escrita e sincronizada, para duas threads (broadcast e PING, por exemplo) nao intercalarem
- *       caracteres de duas linhas JSON no mesmo socket;</li>
- *   <li>falha de I/O vira {@code false} no retorno, e nao {@code RuntimeException} subindo pela thread.</li>
- * </ul>
- *
- * <p>UTF-8 explicito nos dois sentidos: sem isso, acento vira lixo quando os peers rodam em
- * sistemas com charset padrao diferente (Windows x Linux).
  */
 public final class PeerConnection implements Closeable {
 

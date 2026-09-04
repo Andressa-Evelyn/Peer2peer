@@ -17,9 +17,7 @@ import java.util.List;
 /**
  * Cliente de console que exercita o nucleo sem interface grafica.
  *
- * <p>Existe para a Pessoa A demonstrar a malha funcionando antes de a tela existir, e para
- * a Pessoa B ter uma referencia viva de como consumir o contrato. <b>Nao faz parte da entrega
- * final</b>: quando a tela JavaFX estiver pronta, o mainClass do build aponta para ela e esta
+ * Quando a tela JavaFX estiver pronta, o mainClass do build aponta para ela e esta
  * classe pode ser apagada.
  *
  * <p>Uso:
