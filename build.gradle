@@ -2,7 +2,7 @@ plugins {
     id 'java'
     id 'application'
     // Pessoa B: o plugin ja esta configurado. Descomente quando comecar a tela (tarefa B1).
-    // id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
 group = 'com.unifor.br'
@@ -27,15 +27,16 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 // Pessoa B: descomente junto com o plugin acima (tarefa B1).
-// javafx {
-//     version = '21.0.2'
-//     modules = ['javafx.controls', 'javafx.fxml']
-// }
+javafx {
+    version = '21.0.2'
+    modules = ['javafx.controls', 'javafx.fxml']
+}
 
 application {
     // Hoje aponta para o cliente de console, que valida o nucleo sem interface.
     // Pessoa B: troque para 'com.unifor.br.peer.ui.ChatApplication' quando a tela existir.
-    mainClass = 'com.unifor.br.peer.demo.ConsoleChat'
+    // mainClass = 'com.unifor.br.peer.demo.ConsoleChat'
+    mainClass = 'com.unifor.br.peer.ui.ChatApplication'
 }
 
 tasks.named('run') {
