@@ -1,0 +1,34 @@
+.root {
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.chat-view-root {
+    -fx-background-color: #edf2f7;
+}
+
+.sidebar {
+    -fx-background-color: #2d3748;
+}
+
+.sidebar .list-view {
+    -fx-background-color: #1a202c;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.sidebar .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #e2e8f0;
+    -fx-padding: 8px 12px;
+}
+
+.sidebar .list-cell:filled:selected,
+.sidebar .list-cell:filled:hover {
+    -fx-background-color: #4a5568;
+    -fx-text-fill: #ffffff;
+    -fx-background-radius: 4px;
+}
+
+.button {
+    -fx-cursor: hand;
+}

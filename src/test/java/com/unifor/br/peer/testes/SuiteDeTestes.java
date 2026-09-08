@@ -39,6 +39,7 @@ public final class SuiteDeTestes {
         resiliencia(v);
         telaDeEntrada(v);
         roteamento(v);
+        telaDeChat(v);
 
         System.exit(v.resumo() ? 0 : 1);
     }
@@ -443,6 +444,88 @@ public final class SuiteDeTestes {
             router.setNetwork(fake);
             igual(fake, router.getNetwork(), "network deve ser atualizada");
             igual(fake, router.getApplicationState().network(), "applicationState deve referenciar a nova rede");
+        });
+    }
+
+    // ------------------------------------------------------ B: tela de chat
+
+    private static void telaDeChat(Verificador v) {
+        try {
+            javafx.application.Platform.startup(() -> {});
+        } catch (IllegalStateException e) {
+            // toolkit JavaFX ja inicializado
+        }
+
+        v.teste("chatView: contem lista de peers, historico e campos de envio", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var appState = new com.unifor.br.peer.ui.state.ApplicationState(fake);
+            var chatView = new com.unifor.br.peer.ui.views.ChatView(null, appState);
+
+            confirmar(chatView.getPeerListView() != null, "deve ter lista de peers");
+            confirmar(chatView.getMessageListView() != null, "deve ter lista de historico de mensagens");
+            confirmar(chatView.getMessageField() != null, "deve ter campo de texto");
+            confirmar(chatView.getSendButton() != null, "deve ter botao de envio");
+            confirmar(chatView.getLeft() != null, "painel esquerdo deve estar presente");
+            confirmar(chatView.getCenter() != null, "painel central deve estar presente");
+        });
+
+        v.teste("chatController: eventos onPeerJoined e onPeerLeft geram mensagens de sistema e atualizam peers", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var chatState = new com.unifor.br.peer.ui.state.ChatState();
+            var controller = new com.unifor.br.peer.ui.controllers.ChatController(fake, chatState);
+
+            var peer1 = new com.unifor.br.peer.contract.PeerInfo("p1", "Alice", "127.0.0.1", 5001);
+            controller.onPeerJoined(peer1);
+
+            esperarAte(() -> chatState.getPeers().contains(peer1), "peer1 deve estar na lista de peers");
+            esperarAte(() -> !chatState.getMessages().isEmpty(), "deve haver mensagem de sistema de entrada");
+            confirmar(chatState.getMessages().get(0).texto().contains("entrou na rede"), "texto deve indicar entrada");
+
+            controller.onPeerLeft(peer1);
+            esperarAte(() -> !chatState.getPeers().contains(peer1), "peer1 deve ter sido removido");
+            esperarAte(() -> chatState.getMessages().size() == 2, "deve haver mensagem de saida");
+            confirmar(chatState.getMessages().get(1).texto().contains("saiu da rede"), "texto deve indicar saida");
+        });
+
+        v.teste("chatController: onMessage e onError adicionam ao historico", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var chatState = new com.unifor.br.peer.ui.state.ChatState();
+            var controller = new com.unifor.br.peer.ui.controllers.ChatController(fake, chatState);
+
+            var peer1 = new com.unifor.br.peer.contract.PeerInfo("p1", "Alice", "127.0.0.1", 5001);
+            var msg = com.unifor.br.peer.contract.Message.chat(peer1, "Ola mundo");
+            controller.onMessage(msg);
+
+            esperarAte(() -> chatState.getMessages().size() == 1, "historico deve conter 1 mensagem");
+            igual("Ola mundo", chatState.getMessages().get(0).texto(), "conteudo deve ser preservado");
+
+            controller.onError("Conexao recusada");
+            esperarAte(() -> chatState.getMessages().size() == 2, "historico deve conter mensagem de erro");
+            confirmar(chatState.getMessages().get(1).texto().contains("Erro: Conexao recusada"), "deve formatar erro legivel");
+        });
+
+        v.teste("chatView: envio de mensagem dispara broadcast ou privado", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var appState = new com.unifor.br.peer.ui.state.ApplicationState(fake);
+            var chatView = new com.unifor.br.peer.ui.views.ChatView(null, appState);
+
+            chatView.getMessageField().setText("Mensagem publica de teste");
+            chatView.handleSend();
+
+            esperarAte(() -> appState.chatState().getMessages().size() == 1, "deve ter ecoado mensagem broadcast no historico");
+            igual("Mensagem publica de teste", appState.chatState().getMessages().get(0).texto(), "texto deve ser enviado");
+            igual("", chatView.getMessageField().getText(), "campo de texto deve ser limpo apos envio");
+
+            // Teste com destinatario privado
+            var peer2 = new com.unifor.br.peer.contract.PeerInfo("p2", "Bob", "127.0.0.1", 5002);
+            appState.chatState().getPeers().add(peer2);
+            appState.chatState().setSelectedPeer(peer2);
+
+            chatView.getMessageField().setText("Mensagem secreta");
+            chatView.handleSend();
+
+            esperarAte(() -> appState.chatState().getMessages().size() == 2, "deve conter a mensagem privada");
+            confirmar(appState.chatState().getMessages().get(1).isPrivada(), "mensagem deve ser marcada como privada");
         });
     }
 

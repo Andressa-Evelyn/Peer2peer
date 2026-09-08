@@ -4,9 +4,9 @@ import com.unifor.br.peer.contract.PeerNetwork;
 import com.unifor.br.peer.net.SocketPeerNetwork;
 import com.unifor.br.peer.ui.enums.Route;
 import com.unifor.br.peer.ui.state.ApplicationState;
+import com.unifor.br.peer.ui.views.ChatView;
 import com.unifor.br.peer.ui.views.SignInView;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
@@ -32,7 +32,7 @@ public class Router {
         this.applicationState = applicationState;
         this.network = applicationState != null ? applicationState.network() : null;
 
-        this.scene = new Scene(root, 300, 420);
+        this.scene = new Scene(root, 670, 420);
         var cssUrl = getClass().getResource("/com/unifor/br/peer/ui/style.css");
         if (cssUrl != null) {
             scene.getStylesheets().add(cssUrl.toExternalForm());
@@ -73,10 +73,10 @@ public class Router {
     private void showChat() {
         if (stage != null) {
             stage.setTitle("Aplicação de Chat");
+            stage.setResizable(true);
         }
-        Label chatPlaceholder = new Label("Chat");
-        chatPlaceholder.setStyle("-fx-font-size: 18px; -fx-text-fill: #2d3748;");
-        root.getChildren().setAll(chatPlaceholder);
+        ChatView chatView = new ChatView(stage, applicationState);
+        root.getChildren().setAll(chatView);
     }
 
     public void shutdown() {
