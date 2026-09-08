@@ -12,8 +12,8 @@ Continuação do projeto `com.unifor.br.peer`.
 | Parte | Responsável | Situação |
 |---|---|---|
 | Contrato entre as camadas | Sprint 0, a dupla | pronto |
-| Núcleo P2P (rede, protocolo, malha, roteamento) | Pessoa A | pronto e verificado |
-| Interface JavaFX | Pessoa B | a fazer — ver [`docs/PESSOA-B.md`](docs/PESSOA-B.md) |
+| Núcleo P2P (rede, protocolo, malha, roteamento) | Andressa | pronto e verificado |
+| Interface JavaFX | João Alex | a fazer — ver [`docs/PESSOA-B.md`](docs/PESSOA-B.md) |
 
 O núcleo já entrega tudo que a interface precisa: entrar em uma malha por qualquer participante,
 mensagem para todos, mensagem privada, lista de peers e aviso de entrada e saída.
