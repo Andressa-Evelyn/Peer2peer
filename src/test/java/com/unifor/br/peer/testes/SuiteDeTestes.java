@@ -459,12 +459,13 @@ public final class SuiteDeTestes {
         v.teste("chatView: contem lista de peers, historico e campos de envio", () -> {
             var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
             var appState = new com.unifor.br.peer.ui.state.ApplicationState(fake);
-            var chatView = new com.unifor.br.peer.ui.views.ChatView(null, appState);
+            var chatView = new com.unifor.br.peer.ui.views.ChatView(appState);
 
             confirmar(chatView.getPeerListView() != null, "deve ter lista de peers");
             confirmar(chatView.getMessageListView() != null, "deve ter lista de historico de mensagens");
             confirmar(chatView.getMessageField() != null, "deve ter campo de texto");
             confirmar(chatView.getSendButton() != null, "deve ter botao de envio");
+            confirmar(chatView.getCreateConversationButton() != null, "deve ter botao de nova conversa");
             confirmar(chatView.getLeft() != null, "painel esquerdo deve estar presente");
             confirmar(chatView.getCenter() != null, "painel central deve estar presente");
         });
@@ -507,7 +508,7 @@ public final class SuiteDeTestes {
         v.teste("chatView: envio de mensagem dispara broadcast ou privado", () -> {
             var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
             var appState = new com.unifor.br.peer.ui.state.ApplicationState(fake);
-            var chatView = new com.unifor.br.peer.ui.views.ChatView(null, appState);
+            var chatView = new com.unifor.br.peer.ui.views.ChatView(appState);
 
             chatView.getMessageField().setText("Mensagem publica de teste");
             chatView.handleSend();
@@ -519,13 +520,23 @@ public final class SuiteDeTestes {
             // Teste com destinatario privado
             var peer2 = new com.unifor.br.peer.contract.PeerInfo("p2", "Bob", "127.0.0.1", 5002);
             appState.chatState().getPeers().add(peer2);
-            appState.chatState().setSelectedPeer(peer2);
+            chatView.getPeerListView().getSelectionModel().select(peer2);
 
             chatView.getMessageField().setText("Mensagem secreta");
             chatView.handleSend();
 
             esperarAte(() -> appState.chatState().getMessages().size() == 2, "deve conter a mensagem privada");
             confirmar(appState.chatState().getMessages().get(1).isPrivada(), "mensagem deve ser marcada como privada");
+            esperarAte(() -> chatView.getMessageListView().getItems().size() == 1,
+                    "na conversa privada deve exibir apenas a troca privada ativa");
+            confirmar(chatView.getMessageListView().getItems().get(0).isPrivada(),
+                    "item visivel deve ser privado quando conversa privada estiver selecionada");
+
+            chatView.getBroadcastButton().fire();
+            esperarAte(() -> chatView.getMessageListView().getItems().size() == 1,
+                    "na conversa geral deve ocultar mensagens privadas");
+            confirmar(!chatView.getMessageListView().getItems().get(0).isPrivada(),
+                    "item visivel na conversa geral deve ser publico");
         });
     }
 

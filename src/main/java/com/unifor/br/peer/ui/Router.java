@@ -75,7 +75,7 @@ public class Router {
             stage.setTitle("Aplicação de Chat");
             stage.setResizable(true);
         }
-        ChatView chatView = new ChatView(stage, applicationState);
+        ChatView chatView = new ChatView(applicationState);
         root.getChildren().setAll(chatView);
     }
 

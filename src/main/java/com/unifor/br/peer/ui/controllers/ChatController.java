@@ -8,15 +8,16 @@ import com.unifor.br.peer.contract.PeerNetwork;
 import com.unifor.br.peer.ui.state.ChatState;
 import javafx.application.Platform;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Controller responsible for mediating events between the P2P network (PeerNetwork)
- * and the GUI state (ChatState), implementing PeerEventListener.
+ * Controlador responsável por mediar eventos entre a rede P2P (PeerNetwork)
+ * e o estado da interface gráfica (ChatState), implementando PeerEventListener.
  *
- * <p>All UI updates are executed inside {@link Platform#runLater(Runnable)}
- * and operations are non-blocking.
+ * <p>Todas as atualizações na UI são executadas dentro de {@link Platform#runLater(Runnable)}
+ * e as operações não são bloqueantes.
  */
 public class ChatController implements PeerEventListener {
 
@@ -28,7 +29,24 @@ public class ChatController implements PeerEventListener {
         this.chatState = Objects.requireNonNull(chatState, "chatState cannot be null");
         if (network != null) {
             network.setListener(this);
+            initializeConnectedPeers();
         }
+    }
+
+    private void initializeConnectedPeers() {
+        List<PeerInfo> peers = network.connectedPeers();
+        if (peers == null || peers.isEmpty()) {
+            return;
+        }
+        runOnUI(() -> peers.stream()
+                .filter(Objects::nonNull)
+                .forEach(peer -> {
+                    boolean alreadyExists = chatState.getPeers().stream()
+                            .anyMatch(existing -> existing.peerId().equals(peer.peerId()));
+                    if (!alreadyExists) {
+                        chatState.getPeers().add(peer);
+                    }
+                }));
     }
 
     @Override
@@ -103,7 +121,7 @@ public class ChatController implements PeerEventListener {
     }
 
     /**
-     * Sends a message via broadcast or private channel depending on the selected peer.
+     * Envia uma mensagem pelo canal broadcast ou privado, dependendo do peer selecionado.
      */
     public boolean sendMessage(String text) {
         if (text == null || text.trim().isEmpty() || network == null) {
@@ -134,7 +152,7 @@ public class ChatController implements PeerEventListener {
             try {
                 Platform.runLater(action);
             } catch (IllegalStateException e) {
-                // In case JavaFX toolkit is not active in pure unit tests
+                // Caso o toolkit JavaFX não esteja ativo em testes unitários puros
                 action.run();
             }
         }

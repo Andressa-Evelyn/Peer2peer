@@ -7,12 +7,12 @@ import com.unifor.br.peer.ui.controllers.ChatController;
 import com.unifor.br.peer.ui.state.ApplicationState;
 import com.unifor.br.peer.ui.state.ChatState;
 import javafx.application.Platform;
+import javafx.collections.transformation.FilteredList;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.stage.Stage;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -33,7 +33,6 @@ public class ChatView extends BorderPane {
     private static final DateTimeFormatter TIME_FORMATTER =
             DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
 
-    private final Stage stage;
     private final PeerNetwork network;
     private final ChatState chatState;
     private final ChatController controller;
@@ -45,17 +44,19 @@ public class ChatView extends BorderPane {
     private final Label currentChatHeaderLabel;
     private final Label selfInfoLabel;
     private final Button broadcastButton;
+    private final Button createConversationButton;
+    private final FilteredList<Message> filteredMessages;
 
-    public ChatView(Stage stage, ApplicationState applicationState) {
-        this(stage, applicationState != null ? applicationState.network() : null,
+    public ChatView(ApplicationState applicationState) {
+        this(applicationState != null ? applicationState.network() : null,
                 applicationState != null ? applicationState.chatState() : new ChatState());
     }
 
-    public ChatView(Stage stage, PeerNetwork network, ChatState chatState) {
-        this.stage = stage;
+    public ChatView(PeerNetwork network, ChatState chatState) {
         this.network = network;
         this.chatState = chatState != null ? chatState : new ChatState();
         this.controller = new ChatController(this.network, this.chatState);
+        this.filteredMessages = new FilteredList<>(this.chatState.getMessages(), this::shouldDisplayMessageForCurrentConversation);
 
         getStyleClass().add("chat-view-root");
         setPrefSize(900, 600);
@@ -93,7 +94,13 @@ public class ChatView extends BorderPane {
         peerListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             this.chatState.setSelectedPeer(newVal);
             updateChatHeader();
+            refreshMessageFilter();
         });
+
+        createConversationButton = new Button("➕ Nova conversa");
+        createConversationButton.setMaxWidth(Double.MAX_VALUE);
+        createConversationButton.setStyle("-fx-background-color: #2b6cb0; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-alignment: CENTER-LEFT;");
+        createConversationButton.setOnAction(e -> openNewConversationDialog());
 
         broadcastButton = new Button("📢 Conversa Geral (Todos)");
         broadcastButton.setMaxWidth(Double.MAX_VALUE);
@@ -102,9 +109,10 @@ public class ChatView extends BorderPane {
             peerListView.getSelectionModel().clearSelection();
             this.chatState.setSelectedPeer(null);
             updateChatHeader();
+            refreshMessageFilter();
         });
 
-        sidebar.getChildren().addAll(sidebarTitle, selfInfoLabel, broadcastButton, new Separator(), peerListView);
+        sidebar.getChildren().addAll(sidebarTitle, selfInfoLabel, createConversationButton, broadcastButton, new Separator(), peerListView);
         setLeft(sidebar);
 
         // --- PAINEL CENTRAL (Histórico + Cabeçalho + Envio) ---
@@ -123,18 +131,18 @@ public class ChatView extends BorderPane {
         centerPane.setTop(headerBox);
 
         // Lista de Mensagens
-        messageListView = new ListView<>(this.chatState.getMessages());
+        messageListView = new ListView<>(filteredMessages);
         messageListView.setStyle("-fx-background-color: #edf2f7; -fx-background-insets: 0;");
         messageListView.setCellFactory(lv -> new MessageListCell());
         VBox.setVgrow(messageListView, Priority.ALWAYS);
         centerPane.setCenter(messageListView);
 
         // Auto-scroll ao adicionar novas mensagens
-        this.chatState.getMessages().addListener((ListChangeListener<Message>) change -> {
+        filteredMessages.addListener((ListChangeListener<Message>) change -> {
             while (change.next()) {
                 if (change.wasAdded()) {
                     Platform.runLater(() -> {
-                        int total = this.chatState.getMessages().size();
+                        int total = filteredMessages.size();
                         if (total > 0) {
                             messageListView.scrollTo(total - 1);
                         }
@@ -183,9 +191,9 @@ public class ChatView extends BorderPane {
         if (network != null && network.self() != null) {
             PeerInfo self = network.self();
             selfInfoLabel.setText("Você: " + self.username() + " (Porta: " + self.port() + ")");
-        } else {
-            selfInfoLabel.setText("Você: (iniciando...)");
+            return;
         }
+        selfInfoLabel.setText("Você: (iniciando...)");
     }
 
     private void updateChatHeader() {
@@ -237,6 +245,82 @@ public class ChatView extends BorderPane {
 
     public Button getBroadcastButton() {
         return broadcastButton;
+    }
+
+    public Button getCreateConversationButton() {
+        return createConversationButton;
+    }
+
+    private void refreshMessageFilter() {
+        filteredMessages.setPredicate(this::shouldDisplayMessageForCurrentConversation);
+    }
+
+    private boolean shouldDisplayMessageForCurrentConversation(Message message) {
+        if (message == null) {
+            return false;
+        }
+
+        if (isSystemMessage(message)) {
+            return true;
+        }
+
+        PeerInfo selected = chatState.getSelectedPeer();
+        if (selected == null) {
+            return !message.isPrivada();
+        }
+
+        if (!message.isPrivada()) {
+            return false;
+        }
+
+        return isMessageVisibleInPrivateConversation(message, selected.peerId());
+    }
+
+    private boolean isSystemMessage(Message message) {
+        return !message.isConversa() || "Sistema".equalsIgnoreCase(message.fromUser());
+    }
+
+    private boolean isMessageVisibleInPrivateConversation(Message message, String selectedPeerId) {
+        if (network == null || network.self() == null || selectedPeerId == null) {
+            return false;
+        }
+        String selfPeerId = network.self().peerId();
+        String fromPeerId = message.fromPeerId();
+        String toPeerId = message.toPeerId();
+
+        return (selfPeerId.equals(fromPeerId) && selectedPeerId.equals(toPeerId))
+                || (selectedPeerId.equals(fromPeerId) && selfPeerId.equals(toPeerId));
+    }
+
+    private void openNewConversationDialog() {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Nova conversa");
+        dialog.setHeaderText("Conectar a um peer");
+        dialog.setContentText("Host:porta");
+
+        dialog.showAndWait().ifPresent(value -> {
+            String input = value != null ? value.trim() : "";
+            String[] parts = input.split(":");
+            if (parts.length != 2 || parts[0].isBlank()) {
+                controller.onError("Endereço inválido. Use host:porta");
+                return;
+            }
+
+            try {
+                int port = Integer.parseInt(parts[1].trim());
+                if (port < 1 || port > 65535) {
+                    controller.onError("Porta inválida. Use um valor entre 1 e 65535");
+                    return;
+                }
+                if (network == null) {
+                    controller.onError("Rede indisponível para criar nova conversa");
+                    return;
+                }
+                network.connectTo(parts[0].trim(), port);
+            } catch (NumberFormatException e) {
+                controller.onError("Porta inválida. Use um número entre 1 e 65535");
+            }
+        });
     }
 
     /**
