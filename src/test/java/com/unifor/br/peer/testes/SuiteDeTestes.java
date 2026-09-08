@@ -37,6 +37,9 @@ public final class SuiteDeTestes {
         malha(v);
         conversa(v);
         resiliencia(v);
+        telaDeEntrada(v);
+        roteamento(v);
+        telaDeChat(v);
 
         System.exit(v.resumo() ? 0 : 1);
     }
@@ -298,6 +301,242 @@ public final class SuiteDeTestes {
             } finally {
                 rede.encerrar();
             }
+        });
+    }
+
+    // ------------------------------------------------------ B2: tela de entrada
+
+    private static void telaDeEntrada(Verificador v) {
+        v.teste("tela de entrada: valida nome vazio", () -> {
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("", "5000", "");
+                throw new AssertionError("deveria recusar nome vazio");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("nome de usuário"), "mensagem deve citar nome de usuário");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("   ", "5000", "");
+                throw new AssertionError("deveria recusar nome com apenas espaços");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("nome de usuário"), "mensagem deve citar nome de usuário");
+            }
+        });
+
+        v.teste("tela de entrada: valida porta vazia ou fora da faixa 1-65535", () -> {
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "", "");
+                throw new AssertionError("deveria recusar porta vazia");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("porta"), "mensagem deve citar porta");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "abc", "");
+                throw new AssertionError("deveria recusar porta nao numerica");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("porta"), "mensagem deve citar porta");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "0", "");
+                throw new AssertionError("deveria recusar porta 0");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("entre 1 e 65535"), "mensagem deve citar faixa 1 a 65535");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "70000", "");
+                throw new AssertionError("deveria recusar porta 70000");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("entre 1 e 65535"), "mensagem deve citar faixa 1 a 65535");
+            }
+        });
+
+        v.teste("tela de entrada: valida porta ocupada antes de chamar o nucleo", () -> {
+            try (java.net.ServerSocket ss = new java.net.ServerSocket(0)) {
+                int portaOcupada = ss.getLocalPort();
+                try {
+                    com.unifor.br.peer.ui.views.SignInView.validate("alice", String.valueOf(portaOcupada), "");
+                    throw new AssertionError("deveria recusar porta ja ocupada");
+                } catch (IllegalStateException e) {
+                    confirmar(e.getMessage().contains(String.valueOf(portaOcupada)), "mensagem deve citar porta ocupada");
+                }
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        v.teste("tela de entrada: valida formato do campo host:porta para rede existente", () -> {
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "5000", "semporta");
+                throw new AssertionError("deveria recusar host sem porta");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("host:porta"), "mensagem deve citar formato host:porta");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "5000", "localhost:invalido");
+                throw new AssertionError("deveria recusar porta remota nao numerica");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("porta"), "mensagem deve citar porta");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "5000", "localhost:80000");
+                throw new AssertionError("deveria recusar porta remota fora da faixa");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("entre 1 e 65535"), "mensagem deve citar faixa");
+            }
+        });
+
+        v.teste("tela de entrada: campos validos geram SignInModel correto", () -> {
+            // escolhe uma porta livre para o teste
+            int portaLivre;
+            try (java.net.ServerSocket ss = new java.net.ServerSocket(0)) {
+                portaLivre = ss.getLocalPort();
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            var model = com.unifor.br.peer.ui.views.SignInView.validate("alice", String.valueOf(portaLivre), "127.0.0.1:5000");
+            igual("alice", model.getUsername(), "username deve ser alice");
+            igual(portaLivre, model.getPort(), "porta deve ser a indicada");
+            igual("127.0.0.1:5000", model.getConnectExistedNetwork(), "rede existente deve ser preservada");
+        });
+    }
+
+    // ------------------------------------------------------ B: roteamento e navegacao
+
+    private static void roteamento(Verificador v) {
+        try {
+            javafx.application.Platform.startup(() -> {});
+        } catch (IllegalStateException e) {
+            // toolkit JavaFX ja inicializado
+        }
+
+        v.teste("router: navega para SIGN_IN e CHAT alterando rota e conteudo", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var router = new com.unifor.br.peer.ui.Router(null, fake);
+
+            igual(fake, router.getNetwork(), "network deve ser a injetada");
+            router.navigate(com.unifor.br.peer.ui.enums.Route.SIGN_IN);
+            igual(com.unifor.br.peer.ui.enums.Route.SIGN_IN, router.getCurrentRoute(), "rota atual deve ser SIGN_IN");
+            confirmar(!router.getRoot().getChildren().isEmpty(), "root deve conter elemento da tela de entrada");
+            confirmar(router.getRoot().getChildren().get(0) instanceof com.unifor.br.peer.ui.views.SignInView,
+                    "deve carregar SignInView em SIGN_IN");
+
+            router.navigate(com.unifor.br.peer.ui.enums.Route.CHAT);
+            igual(com.unifor.br.peer.ui.enums.Route.CHAT, router.getCurrentRoute(), "rota atual deve ser CHAT");
+            confirmar(!router.getRoot().getChildren().isEmpty(), "root deve conter elemento da tela de chat");
+        });
+
+        v.teste("router: shutdown encerra a rede P2P", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var router = new com.unifor.br.peer.ui.Router(null, fake);
+            router.shutdown();
+            confirmar(fake.isShutdownCalled(), "shutdown deve ser repassado para a rede");
+        });
+
+        v.teste("router: setNetwork atualiza applicationState", () -> {
+            var router = new com.unifor.br.peer.ui.Router(null, (com.unifor.br.peer.contract.PeerNetwork) null);
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            router.setNetwork(fake);
+            igual(fake, router.getNetwork(), "network deve ser atualizada");
+            igual(fake, router.getApplicationState().network(), "applicationState deve referenciar a nova rede");
+        });
+    }
+
+    // ------------------------------------------------------ B: tela de chat
+
+    private static void telaDeChat(Verificador v) {
+        try {
+            javafx.application.Platform.startup(() -> {});
+        } catch (IllegalStateException e) {
+            // toolkit JavaFX ja inicializado
+        }
+
+        v.teste("chatView: contem lista de peers, historico e campos de envio", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var appState = new com.unifor.br.peer.ui.state.ApplicationState(fake);
+            var chatView = new com.unifor.br.peer.ui.views.ChatView(appState);
+
+            confirmar(chatView.getPeerListView() != null, "deve ter lista de peers");
+            confirmar(chatView.getMessageListView() != null, "deve ter lista de historico de mensagens");
+            confirmar(chatView.getMessageField() != null, "deve ter campo de texto");
+            confirmar(chatView.getSendButton() != null, "deve ter botao de envio");
+            confirmar(chatView.getCreateConversationButton() != null, "deve ter botao de nova conversa");
+            confirmar(chatView.getLeft() != null, "painel esquerdo deve estar presente");
+            confirmar(chatView.getCenter() != null, "painel central deve estar presente");
+        });
+
+        v.teste("chatController: eventos onPeerJoined e onPeerLeft geram mensagens de sistema e atualizam peers", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var chatState = new com.unifor.br.peer.ui.state.ChatState();
+            var controller = new com.unifor.br.peer.ui.controllers.ChatController(fake, chatState);
+
+            var peer1 = new com.unifor.br.peer.contract.PeerInfo("p1", "Alice", "127.0.0.1", 5001);
+            controller.onPeerJoined(peer1);
+
+            esperarAte(() -> chatState.getPeers().contains(peer1), "peer1 deve estar na lista de peers");
+            esperarAte(() -> !chatState.getMessages().isEmpty(), "deve haver mensagem de sistema de entrada");
+            confirmar(chatState.getMessages().get(0).texto().contains("entrou na rede"), "texto deve indicar entrada");
+
+            controller.onPeerLeft(peer1);
+            esperarAte(() -> !chatState.getPeers().contains(peer1), "peer1 deve ter sido removido");
+            esperarAte(() -> chatState.getMessages().size() == 2, "deve haver mensagem de saida");
+            confirmar(chatState.getMessages().get(1).texto().contains("saiu da rede"), "texto deve indicar saida");
+        });
+
+        v.teste("chatController: onMessage e onError adicionam ao historico", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var chatState = new com.unifor.br.peer.ui.state.ChatState();
+            var controller = new com.unifor.br.peer.ui.controllers.ChatController(fake, chatState);
+
+            var peer1 = new com.unifor.br.peer.contract.PeerInfo("p1", "Alice", "127.0.0.1", 5001);
+            var msg = com.unifor.br.peer.contract.Message.chat(peer1, "Ola mundo");
+            controller.onMessage(msg);
+
+            esperarAte(() -> chatState.getMessages().size() == 1, "historico deve conter 1 mensagem");
+            igual("Ola mundo", chatState.getMessages().get(0).texto(), "conteudo deve ser preservado");
+
+            controller.onError("Conexao recusada");
+            esperarAte(() -> chatState.getMessages().size() == 2, "historico deve conter mensagem de erro");
+            confirmar(chatState.getMessages().get(1).texto().contains("Erro: Conexao recusada"), "deve formatar erro legivel");
+        });
+
+        v.teste("chatView: envio de mensagem dispara broadcast ou privado", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var appState = new com.unifor.br.peer.ui.state.ApplicationState(fake);
+            var chatView = new com.unifor.br.peer.ui.views.ChatView(appState);
+
+            chatView.getMessageField().setText("Mensagem publica de teste");
+            chatView.handleSend();
+
+            esperarAte(() -> appState.chatState().getMessages().size() == 1, "deve ter ecoado mensagem broadcast no historico");
+            igual("Mensagem publica de teste", appState.chatState().getMessages().get(0).texto(), "texto deve ser enviado");
+            igual("", chatView.getMessageField().getText(), "campo de texto deve ser limpo apos envio");
+
+            // Teste com destinatario privado
+            var peer2 = new com.unifor.br.peer.contract.PeerInfo("p2", "Bob", "127.0.0.1", 5002);
+            appState.chatState().getPeers().add(peer2);
+            chatView.getPeerListView().getSelectionModel().select(peer2);
+
+            chatView.getMessageField().setText("Mensagem secreta");
+            chatView.handleSend();
+
+            esperarAte(() -> appState.chatState().getMessages().size() == 2, "deve conter a mensagem privada");
+            confirmar(appState.chatState().getMessages().get(1).isPrivada(), "mensagem deve ser marcada como privada");
+            esperarAte(() -> chatView.getMessageListView().getItems().size() == 1,
+                    "na conversa privada deve exibir apenas a troca privada ativa");
+            confirmar(chatView.getMessageListView().getItems().get(0).isPrivada(),
+                    "item visivel deve ser privado quando conversa privada estiver selecionada");
+
+            chatView.getBroadcastButton().fire();
+            esperarAte(() -> chatView.getMessageListView().getItems().size() == 1,
+                    "na conversa geral deve ocultar mensagens privadas");
+            confirmar(!chatView.getMessageListView().getItems().get(0).isPrivada(),
+                    "item visivel na conversa geral deve ser publico");
         });
     }
 
