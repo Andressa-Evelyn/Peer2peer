@@ -1,22 +1,29 @@
 package com.unifor.br.peer.ui;
 
+import com.unifor.br.peer.ui.enums.Route;
 import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 public class ChatApplication extends Application {
+    private Router router;
+
     public static void main(String[] args) {
         launch(args);
     }
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        StackPane root = new StackPane();
-        // opções da janela
-        Scene scene = new Scene(root, 300, 250);
-        primaryStage.setTitle("Aplicação de Chat");
-        primaryStage.setScene(scene);
+        router = new Router(primaryStage);
+        primaryStage.setOnCloseRequest(e -> router.shutdown());
+        router.navigate(Route.SIGN_IN);
         primaryStage.show();
+    }
+
+    @Override
+    public void stop() throws Exception {
+        if (router != null) {
+            router.shutdown();
+        }
+        super.stop();
     }
 }

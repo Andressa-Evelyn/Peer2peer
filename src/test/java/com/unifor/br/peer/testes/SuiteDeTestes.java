@@ -37,6 +37,8 @@ public final class SuiteDeTestes {
         malha(v);
         conversa(v);
         resiliencia(v);
+        telaDeEntrada(v);
+        roteamento(v);
 
         System.exit(v.resumo() ? 0 : 1);
     }
@@ -298,6 +300,149 @@ public final class SuiteDeTestes {
             } finally {
                 rede.encerrar();
             }
+        });
+    }
+
+    // ------------------------------------------------------ B2: tela de entrada
+
+    private static void telaDeEntrada(Verificador v) {
+        v.teste("tela de entrada: valida nome vazio", () -> {
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("", "5000", "");
+                throw new AssertionError("deveria recusar nome vazio");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("nome de usuário"), "mensagem deve citar nome de usuário");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("   ", "5000", "");
+                throw new AssertionError("deveria recusar nome com apenas espaços");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("nome de usuário"), "mensagem deve citar nome de usuário");
+            }
+        });
+
+        v.teste("tela de entrada: valida porta vazia ou fora da faixa 1-65535", () -> {
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "", "");
+                throw new AssertionError("deveria recusar porta vazia");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("porta"), "mensagem deve citar porta");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "abc", "");
+                throw new AssertionError("deveria recusar porta nao numerica");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("porta"), "mensagem deve citar porta");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "0", "");
+                throw new AssertionError("deveria recusar porta 0");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("entre 1 e 65535"), "mensagem deve citar faixa 1 a 65535");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "70000", "");
+                throw new AssertionError("deveria recusar porta 70000");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("entre 1 e 65535"), "mensagem deve citar faixa 1 a 65535");
+            }
+        });
+
+        v.teste("tela de entrada: valida porta ocupada antes de chamar o nucleo", () -> {
+            try (java.net.ServerSocket ss = new java.net.ServerSocket(0)) {
+                int portaOcupada = ss.getLocalPort();
+                try {
+                    com.unifor.br.peer.ui.views.SignInView.validate("alice", String.valueOf(portaOcupada), "");
+                    throw new AssertionError("deveria recusar porta ja ocupada");
+                } catch (IllegalStateException e) {
+                    confirmar(e.getMessage().contains(String.valueOf(portaOcupada)), "mensagem deve citar porta ocupada");
+                }
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        v.teste("tela de entrada: valida formato do campo host:porta para rede existente", () -> {
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "5000", "semporta");
+                throw new AssertionError("deveria recusar host sem porta");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("host:porta"), "mensagem deve citar formato host:porta");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "5000", "localhost:invalido");
+                throw new AssertionError("deveria recusar porta remota nao numerica");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("porta"), "mensagem deve citar porta");
+            }
+
+            try {
+                com.unifor.br.peer.ui.views.SignInView.validate("alice", "5000", "localhost:80000");
+                throw new AssertionError("deveria recusar porta remota fora da faixa");
+            } catch (IllegalArgumentException e) {
+                confirmar(e.getMessage().contains("entre 1 e 65535"), "mensagem deve citar faixa");
+            }
+        });
+
+        v.teste("tela de entrada: campos validos geram SignInModel correto", () -> {
+            // escolhe uma porta livre para o teste
+            int portaLivre;
+            try (java.net.ServerSocket ss = new java.net.ServerSocket(0)) {
+                portaLivre = ss.getLocalPort();
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            var model = com.unifor.br.peer.ui.views.SignInView.validate("alice", String.valueOf(portaLivre), "127.0.0.1:5000");
+            igual("alice", model.getUsername(), "username deve ser alice");
+            igual(portaLivre, model.getPort(), "porta deve ser a indicada");
+            igual("127.0.0.1:5000", model.getConnectExistedNetwork(), "rede existente deve ser preservada");
+        });
+    }
+
+    // ------------------------------------------------------ B: roteamento e navegacao
+
+    private static void roteamento(Verificador v) {
+        try {
+            javafx.application.Platform.startup(() -> {});
+        } catch (IllegalStateException e) {
+            // toolkit JavaFX ja inicializado
+        }
+
+        v.teste("router: navega para SIGN_IN e CHAT alterando rota e conteudo", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var router = new com.unifor.br.peer.ui.Router(null, fake);
+
+            igual(fake, router.getNetwork(), "network deve ser a injetada");
+            router.navigate(com.unifor.br.peer.ui.enums.Route.SIGN_IN);
+            igual(com.unifor.br.peer.ui.enums.Route.SIGN_IN, router.getCurrentRoute(), "rota atual deve ser SIGN_IN");
+            confirmar(!router.getRoot().getChildren().isEmpty(), "root deve conter elemento da tela de entrada");
+            confirmar(router.getRoot().getChildren().get(0) instanceof com.unifor.br.peer.ui.views.SignInView,
+                    "deve carregar SignInView em SIGN_IN");
+
+            router.navigate(com.unifor.br.peer.ui.enums.Route.CHAT);
+            igual(com.unifor.br.peer.ui.enums.Route.CHAT, router.getCurrentRoute(), "rota atual deve ser CHAT");
+            confirmar(!router.getRoot().getChildren().isEmpty(), "root deve conter elemento da tela de chat");
+        });
+
+        v.teste("router: shutdown encerra a rede P2P", () -> {
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            var router = new com.unifor.br.peer.ui.Router(null, fake);
+            router.shutdown();
+            confirmar(fake.isShutdownCalled(), "shutdown deve ser repassado para a rede");
+        });
+
+        v.teste("router: setNetwork atualiza applicationState", () -> {
+            var router = new com.unifor.br.peer.ui.Router(null, (com.unifor.br.peer.contract.PeerNetwork) null);
+            var fake = new com.unifor.br.peer.ui.FakePeerNetwork();
+            router.setNetwork(fake);
+            igual(fake, router.getNetwork(), "network deve ser atualizada");
+            igual(fake, router.getApplicationState().network(), "applicationState deve referenciar a nova rede");
         });
     }
 
